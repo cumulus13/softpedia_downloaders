@@ -25,6 +25,7 @@ else:
 import inspect
 import msvcrt as getch
 from multiprocessing import Process
+from configset import configset
 
 
 class softpedia_error(Exception):
@@ -36,6 +37,8 @@ class softpedia(object):
 		self.all_page_data = []
 		self.first_screenshot_view = False
 		self.has_get_screenshot = False
+		self.configname = os.path.join(os.path.dirname(__file__), 'softpedia.ini')
+		self.config = configset(self.configname)
 		
 	def pause(self, page=''):
 		lineno = str(inspect.stack()[1][2])		
@@ -48,8 +51,30 @@ class softpedia(object):
 		q = getch.getch()
 		if q == 'x' or q == 'q':
 			sys.exit(make_colors("EXIT !", 'lw','lr'))
+			
+	def sourceforge(self, url, download_path=os.getcwd(), saveas=None):
+		SOURCEFORGE_MODULE = self.config.get_config('sourceforge', 'path')
+		while 1:
+			if not SOURCEFORGE_MODULE:
+				SOURCEFORGE_MODULE = raw_input('SOURCEFORGE_MODULE path : ')
+			if os.path.isdir(SOURCEFORGE_MODULE):
+				self.config.write_config('sourceforge', 'path', SOURCEFORGE_MODULE)
+				break
+			elif SOURCEFORGE_MODULE == 'x' or SOURCEFORGE_MODULE == 'q':
+				break
+		if 'sourceforge' in SOURCEFORGE_MODULE:
+			sys.path.insert(0, os.path.dirname(SOURCEFORGE_MODULE))
+		else:
+			sys.path.insert(0, SOURCEFORGE_MODULE)
+		#print("sys.path =", sys.path)
+		from sourceforge_downloader.sourceforge import sourceforge
+		sf = sourceforge()
+		return sf.download(url, download_path, saveas)
+		
 	
 	def download(self, url, download_path=os.getcwd(), confirm=False, use_wget=False):
+		if 'sourceforge' in url:
+			return self.sourceforge(url, download_path)
 		if use_wget:
 			wget.download(url, download_path)
 		else:
@@ -65,20 +90,20 @@ class softpedia(object):
 		b = bs(a.content, 'lxml')
 		
 		download_link_0 = b.find('a', {'itemprop':'downloadUrl'}).get('onclick')
-		debug(download_link_0 = download_link_0, debug=False)
+		debug(download_link_0 = download_link_0)
 		data = re.findall("popup6_open\({(.*?),tsf", download_link_0)
-		debug(data=data,debug=False)
+		debug(data=data)
 		if data:
 			data = "{"+ data[0] + "}"
 			data = ast.literal_eval(data)
-		debug(data=data,debug=False)
+		debug(data=data)
 		
 		if data:
 			url1 = "https://www.softpedia.com/_xaja/dlinfo.php"
 			a1 = requests.post(url1, data=data)
 			b1 = bs(a1.content, 'lxml')
 			dllinkbox2 = b1.find_all('div', {'class':'dllinkbox2'})
-			debug(dllinkbox2=dllinkbox2, debug=False)
+			debug(dllinkbox2=dllinkbox2)
 			
 			if dllinkbox2:
 				download_link_print = ""
@@ -96,7 +121,7 @@ class softpedia(object):
 					if q and str(q).strip().isdigit() and not int(str(q).strip()) > len(dllinkbox2):
 						if show_download_link:
 							print(make_colors("Start download", "lightcyan") + ": " + make_colors(download_link_print, "lightwhite", "lightmagenta"))
-						self._download(i, download_path, confirm)
+						self._download(dllinkbox2[int(str(q).strip()) - 1], download_path, confirm)
 				else:
 					if show_download_link:
 						download_link_print = "[" + make_colors(self._download(dllinkbox2[0], download_path, confirm, False), 'lightred', 'lightyellow') + "]"
@@ -507,7 +532,7 @@ class softpedia(object):
 		
 		return urllib.unquote(head), long_desc, description
 		
-	def navigator(self, search_query=None, download_path=os.getcwd(), confirm=False, show_download_link=False, use_wget=False, show_license=False, data_search=None, nums_page=None, page=None):
+	def navigator(self, search_query=None, download_path=os.getcwd(), confirm=False, show_download_link=False, use_wget=False, show_license=False, data_search=None, nums_page=None, page=None, show_screenshot=True):
 		license, description, homepage, title, screenshot = '', '', '', '', ''
 		if not search_query:
 			search_query = raw_input("What Search for:", "lightwhite", "lightblue")
@@ -546,7 +571,7 @@ class softpedia(object):
 					url = data_search.get(int(str(q).strip())).get('link')
 					license, description, homepage, title, screenshot = self._get(url)
 				if not self.has_get_screenshot and not screenshot:
-					screenshot = self.get_screenshot(url, show = True)
+					screenshot = self.get_screenshot(url, show = show_screenshot)
 				print("\n")
 				print(make_colors("NAME", 'lightcyan') + (12 - 4) * ' ' + ":" + make_colors(title[0], 'lightwhite', 'blue'))
 				print(make_colors("LICENSE", 'lightred') + (12 - 7) * ' ' + ":" + make_colors(license, 'lightwhite', 'red'))
@@ -607,12 +632,17 @@ class softpedia(object):
 		parser.add_argument('-S', '--show-download-link', action='store_true', help='Show Download link')
 		parser.add_argument('-license', '--show-license', action='store_true', help='Show license')
 		parser.add_argument('-H', '--homepage', action='store_true', help='Get HomePage Developer/Official Site')
-		parser.add_argument('-s', '--screenshot', action='store_true', help='Show Screenshor')
+		parser.add_argument('-s', '--screenshot', action='store_true', help='Show Screenshot')
+		parser.add_argument('-ns', '--no-screenshot', action='store_true', help='Show Screenshor')
 		parser.add_argument('-w', '--wget', action = 'store_true', help = 'Force use wget for any download')
 		if len(sys.argv) == 1:
 			parser.print_help()
 		else:
 			args = parser.parse_args()
+			if args.no_screenshot:
+				show_screenshot = False
+			else:
+				show_screenshot = True
 			if args.homepage:
 				self.get_homepage(args.link, show = True)
 			elif args.screenshot:
@@ -622,7 +652,7 @@ class softpedia(object):
 				#self.get_download_link(args.LINK, args.download_path, args.confirm,
 				#args.show_download_link)
 				if args.search:
-					self.navigator(args.search, args.download_path, args.confirm, args.show_download_link, args.wget, args.show_license)
+					self.navigator(args.search, args.download_path, args.confirm, args.show_download_link, args.wget, args.show_license, show_screenshot = show_screenshot)
 
 if __name__ == '__main__':	
 	c = softpedia()
