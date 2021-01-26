@@ -1,5 +1,7 @@
-#!c:/SDK/Anaconda2/python.exe
+#!/usr/bin/env python2
+
 from __future__ import print_function
+
 import os, sys
 import requests
 from bs4 import BeautifulSoup as bs
@@ -7,7 +9,8 @@ from pydebugger.debug import debug
 from make_colors import make_colors
 import re
 import ast
-from idm import IDMan
+if sys.platform == 'win32':
+	from idm import IDMan
 from pywget import wget
 import traceback
 import argparse
@@ -23,7 +26,11 @@ if sys.version_info.major == 3:
 else:
 	import urllib
 import inspect
-import msvcrt as getch
+if sys.platform == 'win32':
+	import msvcrt as getch
+else:
+	from pygetch.getch import getch# GETCHAR as getch
+	setattr(getch, 'getch', getch.GETCHAR)
 from multiprocessing import Process
 from configset import configset
 
@@ -73,6 +80,7 @@ class softpedia(object):
 		
 	
 	def download(self, url, download_path=os.getcwd(), confirm=False, use_wget=False):
+		print(make_colors("DOWNLOAD PATH:", 'bl') + " " + make_colors(download_path, 'y'))
 		if 'sourceforge' in url:
 			return self.sourceforge(url, download_path)
 		if use_wget:
@@ -82,7 +90,8 @@ class softpedia(object):
 				idm = IDMan()
 				idm.download(url, download_path, confirm=confirm)
 			except:
-				traceback.format_exc()
+				if sys.platform == 'win32':
+					traceback.format_exc()
 				wget.download(url, download_path)
 				
 	def get_download_link(self, url, download_path=os.getcwd(), confirm=False, show_download_link=False):
@@ -248,10 +257,10 @@ class softpedia(object):
 			return images_downloaded
 		return images
 	
-	def search(self, query, download_path=os.getcwd(), confirm=False, show_download_link=False, n=1):
+	def search(self, query, download_path=os.getcwd(), confirm=False, show_download_link=False, n=1, verify=True):
 		data = {}
 		url = "https://www.softpedia.com/dyn-search.php?search_term=" + str(query)
-		a = requests.get(url)
+		a = requests.get(url, verify=verify)
 		b = bs(a.content, 'lxml')
 		container_48 = b.find_all('div', {'class':'container_48'})
 		debug(container_48 = container_48[2])
@@ -339,11 +348,16 @@ class softpedia(object):
 		screenshot = []
 		homepage = self.get_homepage(url, bs_object)
 		title = self.get_title(url, bs_object) # title, name
+		debug(get_screenshot = get_screenshot)
 		if get_screenshot:
 			screenshot = self.get_screenshot(url, bs_object, show = True)
 		license = self.get_license(url, bs_object)
 		description = self.get_description(url, bs_object) # head, main_description, origin
-		
+		debug(license = license)
+		debug(description = description)
+		debug(homepage = homepage)
+		debug(title = title)
+		debug(screenshot = screenshot)
 		return license, description, homepage, title, screenshot
 	
 	def _get_index(self, check, all_page_data):
@@ -532,13 +546,13 @@ class softpedia(object):
 		
 		return urllib.unquote(head), long_desc, description
 		
-	def navigator(self, search_query=None, download_path=os.getcwd(), confirm=False, show_download_link=False, use_wget=False, show_license=False, data_search=None, nums_page=None, page=None, show_screenshot=True):
+	def navigator(self, search_query=None, download_path=os.getcwd(), confirm=False, show_download_link=False, use_wget=False, show_license=False, data_search=None, nums_page=None, page=None, show_screenshot=True, verify=True):
 		license, description, homepage, title, screenshot = '', '', '', '', ''
 		if not search_query:
 			search_query = raw_input("What Search for:", "lightwhite", "lightblue")
 		#if not data_search and not page:
 		if search_query and not data_search:
-			data_search, nums_page, page = self.search(search_query, download_path, confirm, show_download_link)
+			data_search, nums_page, page = self.search(search_query, download_path, confirm, show_download_link, verify=verify)
 			debug(data_search = data_search)
 			if isinstance(data_search, str) or isinstance(data_search, unicode):
 				print(make_colors(data_search, 'lw','lr', ['blink']))
@@ -586,7 +600,7 @@ class softpedia(object):
 				if qd and qd.strip() == 'y':
 					self.get_download_link(url, download_path, confirm, show_download_link)
 				
-			elif str(q).strip()[-1] == 's':
+			elif len(str(q).strip()) > 0 and str(q).strip()[-1] == 's':
 				if len(str(q).strip()) > 1:
 					number_selected = str(q).strip()[:-1]
 				else:
@@ -595,7 +609,8 @@ class softpedia(object):
 				if number_selected and str(number_selected).isdigit() and int(number_selected) <= len(list(data_search.keys())):
 					if not self.all_page_data:
 						url = data_search.get(int(str(number_selected).strip())).get('link')
-						license, description, homepage, title, screenshot = self._get(url)
+						debug(url = url)
+						license, description, homepage, title, screenshot = self._get(url, get_screenshot = True)
 					else:
 						license, description, homepage, title, screenshot = self.all_page_data[int(number_selected)-1]
 					
@@ -606,7 +621,7 @@ class softpedia(object):
 				else:
 					print(make_colors("Invalid Number selected !", 'lw', 'lr', ['blinks']))
 					
-			elif str(q).strip()[-1] == 'd':
+			elif len(str(q).strip()) > 0 and str(q).strip()[-1] == 'd':
 				if len(str(q).strip()) > 1:
 					number_selected = str(q).strip()[:-1]
 				else:
@@ -620,7 +635,10 @@ class softpedia(object):
 					
 			elif str(q).strip() == 'x' or str(q).strip() == 'q':
 				sys.exit()
-				
+			else:
+				#print("XXX")
+				return self.navigator(str(q).strip(), download_path, confirm, show_download_link, use_wget, data_search = None, nums_page = nums_page, page = page)
+		debug(data_search = data_search)
 		return self.navigator(search_query, download_path, confirm, show_download_link, use_wget, data_search = data_search, nums_page = nums_page, page = page)
 		
 	def usage(self):
@@ -635,6 +653,7 @@ class softpedia(object):
 		parser.add_argument('-s', '--screenshot', action='store_true', help='Show Screenshot')
 		parser.add_argument('-ns', '--no-screenshot', action='store_true', help='Show Screenshor')
 		parser.add_argument('-w', '--wget', action = 'store_true', help = 'Force use wget for any download')
+		parser.add_argument('-nv', '--no-verify', action = 'store_false', help = 'By pass SSL')
 		if len(sys.argv) == 1:
 			parser.print_help()
 		else:
@@ -652,7 +671,7 @@ class softpedia(object):
 				#self.get_download_link(args.LINK, args.download_path, args.confirm,
 				#args.show_download_link)
 				if args.search:
-					self.navigator(args.search, args.download_path, args.confirm, args.show_download_link, args.wget, args.show_license, show_screenshot = show_screenshot)
+					self.navigator(args.search, args.download_path, args.confirm, args.show_download_link, args.wget, args.show_license, show_screenshot = show_screenshot, verify=args.no_verify)
 
 if __name__ == '__main__':	
 	c = softpedia()

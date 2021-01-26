@@ -33,17 +33,27 @@ class Application(Frame):
 			self.showImage1()
 			self.showNextButton()
 		else:
-			self.showNoImage(master)
+			self.showNoImage()
 		
 		self.n = 0
 		self.binder(master)
 		
-		self.first_center()
+		# self.first_center()
 		self.center()
 
 	def first_center(self, final_width=None, final_height=None):
-		all_size_width = [self.size[0], 0, 0]
-		all_size_height = [self.size[1], 0, 0]
+		if final_width:
+			all_size_width = [final_width, 0, 0]
+		else:
+			all_size_width = [self.size[0], 0, 0]
+		if final_height:
+			all_size_height = [final_height, 0, 0]
+		else:
+			all_size_height = [self.size[1], 0, 0]
+		debug(final_width = final_width)
+		debug(final_height = final_height)
+		debug(all_size_width = all_size_width)
+		debug(all_size_height = all_size_height)
 		self.master.geometry("%sx%s+30+30"%(str(max(all_size_width)), str(max(all_size_height))))
 		
 	def center(self):
@@ -72,19 +82,22 @@ class Application(Frame):
 		master.bind("p", self.previous)
 		master.bind("q", self.quitX)
 
-	def showNoImage(self, master):
-		master.iconbitmap(os.path.join(os.path.dirname(__file__), 'nofavicon.ico'))
-		self.label1 = Label(self, text="No Image", relief=SUNKEN, width=20, height=10, font='Consolas 28 bold')
+	def showNoImage(self):
+		self.master.iconbitmap(os.path.join(os.path.dirname(__file__), 'nofavicon.ico'))
+		self.label1 = Label(self, text="No Image", relief=SUNKEN, width=32, height=9, font='Consolas 28 bold')
 		self.label1.grid(row=0, column=0, padx=5, pady=5, rowspan=10)
 
 	def showImage1(self, event=None):
 		img = Image.open(self.image[0])
 		self.size = img.size
+		debug(self_size = self.size)
 		debug(setsize = self.setSize(img))
-		all_size_width = [self.setSize(img)[0], 0, 0]
-		all_size_height = [self.setSize(img)[1], 0, 0]
-		final_width = sum(all_size_width[:-1]) + 70
-		final_height = sum(all_size_height[1:]) + 40
+		# all_size_width = [self.setSize(img)[0], 0, 0]
+		# all_size_height = [self.setSize(img)[1], 0, 0]
+		# final_width = sum(all_size_width[:-1]) + 70
+		# final_height = sum(all_size_height[1:]) + 40
+		final_width = self.size[0] + 40
+		final_height = self.size[1] + 50
 		self.first_center(final_width, final_height)
 		
 		self.photo2 = ImageTk.PhotoImage(img.convert("RGB"))
@@ -92,55 +105,92 @@ class Application(Frame):
 		self.label2.grid(row=0, column=0, padx=5, pady=5, rowspan=10)
 
 	def run(self, event = None):
-		self.showImage()
-		self.n += 1
+		debug(self_n = self.n)
+		if self.n < 0:
+			self.n = 0
+			self.showNoImage()
+		elif self.n > len(self.image):
+			self.n = len(self.image)
+			self.showNoImage()
+		elif self.n == len(self.image):
+			self.showNoImage()
+		elif self.n == 0:
+			self.n += 1
+			self.showImage()
+		else:
+			self.showImage()
+			if not self.n == len(self.image):
+				self.n += 1
+		
+		debug(self_n = self.n)
 		
 	def previous(self, event = None):
-		self.n = self.n - 2
-		self.showImage()
-		self.n += 1
+		debug(len_self_image = len(self.image))
+		debug(self_n = self.n)
+		if self.n < 0:
+			self.showNoImage()
+			self.n = 0
+		elif self.n > len(self.image):
+			self.n = len(self.image)
+			self.showNoImage()
+		elif self.n == 0:
+			self.showNoImage()	
+		else:	
+			self.n -= 1
+			debug(self_n = self.n)
+			self.showImage()
+			debug(self_n = self.n)
 		
 	def setSize(self, im):
 		screen_width = self.master.winfo_screenwidth()
 		screen_height = self.master.winfo_screenheight()
+		debug(screen_width = screen_width)
+		debug(screen_height = screen_height)
 		if screen_width < im.size[0]:
 			x = screen_width / 1.1
 			y = screen_height / 1.1
 		else:
 			x = im.size[0] /  1.03
 			y = im.size[1] / 1.03
-	
+		debug(x = x)
+		debug(y = y)
 		im.thumbnail((x, y), Image.ANTIALIAS)
 		return x, y
 		
 	def showImage(self):
+		images = None
 		try:
 			images = self.image[self.n]
-			debug(images = images)
-			if images:
-				img = Image.open(images)
-				self.size = img.size
-				debug(self_size = self.size)
-				all_size_width = [self.setSize(img)[0], 0, 0]
-				all_size_height = [self.setSize(img)[1], 0, 0]
-				final_width = sum(all_size_width) + 70
-				final_height = sum(all_size_height) + 40
-				debug(final_width = final_width)
-				debug(final_height = final_height)
-				self.first_center(final_width, final_height)
-				self.photo2 = ImageTk.PhotoImage(img.convert("RGB"))
-				self.label2 = Label(self, image=self.photo2)
-				self.label2.grid(rowspan=1)		
-				self.label2.grid(row=0, column=0, padx=5, pady=5, rowspan=10)
-			else:
-				self.showNoImage(self.master)
 		except:
-			self.showNoImage(self.master)
+			pass
+		debug(images = images)
+		debug(self_n = self.n)
+		if images:
+			img = Image.open(images)
+			self.size = img.size
+			debug(self_size = self.size)
+			# all_size_width = [self.setSize(img)[0], 0, 0]
+			# all_size_height = [self.setSize(img)[1], 0, 0]
+			# final_width = sum(all_size_width) + 40
+			# final_height = sum(all_size_height) + 50
+			final_width = self.size[0] + 50
+			final_height = self.size[1] + 50
+			debug(final_width = final_width)
+			debug(final_height = final_height)
+			self.first_center(int(str(final_width).split(".")[0]), int(str(final_height).split(".")[0]))
+			self.photo2 = ImageTk.PhotoImage(img.convert("RGB"))
+			self.label2 = Label(self, image=self.photo2)
+			self.label2.grid(rowspan=1)		
+			self.label2.grid(row=0, column=0, padx=5, pady=5, rowspan=10)
+		else:
+			self.showNoImage()
+		# except:
+		# 	self.showNoImage()
 		self.center()
 
 	def showNextButton(self):
-		button5 = Button(self, text="Next", command=self.run)
-		button5.grid(row=4, column= 2, sticky = N)
+		self.button5 = Button(self, text="Next", command=self.run)
+		self.button5.grid(row=4, column= 2, sticky = N)
 
 	def sharpen(self):
 		img2 = self.img.filter(ImageFilter.SHARPEN)
